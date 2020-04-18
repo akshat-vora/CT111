@@ -1,0 +1,1619 @@
+clearvars;
+clc;
+SNRdB = 0:0.5:8;
+SNRlin = 10.^(SNRdB./10);
+rate1 = 1/2;
+rate2 = 1/3;
+sigma1sq = 1./((2*rate1).*SNRlin);
+sigma1set = sqrt(sigma1sq);
+sigma2sq = 1./((2*rate2).*SNRlin);
+sigma2set = sqrt(sigma2sq);
+Nsim = 2000;
+i=0;
+A = input('Enter length of Input: ');
+Nerr_BSC_K3 = zeros(1,length(sigma1set));
+Nerr_BEC_K3 = zeros(1,length(sigma1set));
+Nerr_AWGN_K3 = zeros(1,length(sigma1set));
+Nerr_BSC_r2 = zeros(1,length(sigma1set));
+Nerr_BEC_r2 = zeros(1,length(sigma1set));
+Nerr_AWGN_r2 = zeros(1,length(sigma1set));
+Nerr_BSC_r3 = zeros(1,length(sigma1set));
+Nerr_BEC_r3 = zeros(1,length(sigma1set));
+Nerr_AWGN_r3 = zeros(1,length(sigma1set));
+%% K=3 r = 1/2 and K =4 r = 1/2
+for sigma1= sigma1set
+    i=i+1;
+    p = qfunc(sqrt(2*rate1*SNRlin(i)));
+    for ksim = 1:Nsim
+        % signal generation
+        Signal_K3 = signal_generator(A,3);
+        Signal_r2 = signal_generator(A,4);
+        % encoding
+        [Trans_K3,Trans_AWGN_K3] = encoder_K3(Signal_K3);
+        [Trans_r2,Trans_AWGN_r2] = encoder_r2(Signal_r2);
+        % passing through channel (noise insertion)
+        [Rcvd_BSC_K3, Rcvd_BEC_K3, Rcvd_AWGN_K3] = noise_inserter(Trans_K3,Trans_AWGN_K3,p,sigma1);
+        [Rcvd_BSC_r2, Rcvd_BEC_r2, Rcvd_AWGN_r2] = noise_inserter(Trans_r2,Trans_AWGN_r2,p,sigma1);
+        % decoding at receiver begins
+        Decoded_BSC_K3 = viterbidec_K3(Rcvd_BSC_K3);
+        Decoded_BEC_K3 = viterbidec_K3(Rcvd_BEC_K3);
+        Decoded_AWGN_K3 = viterbidec_K3_AWGN(Rcvd_AWGN_K3);
+        Decoded_BSC_r2 = viterbidec_r2(Rcvd_BSC_r2);
+        Decoded_BEC_r2 = viterbidec_r2(Rcvd_BEC_r2);
+        Decoded_AWGN_r2 = viterbidec_r2_AWGN(Rcvd_AWGN_r2);
+        % calculation of errors
+        Nerr_BSC_K3(i) = Nerr_BSC_K3(i) + hamming_dist(Signal_K3,Decoded_BSC_K3);
+        Nerr_BEC_K3(i) = Nerr_BEC_K3(i) + hamming_dist(Signal_K3,Decoded_BEC_K3);
+        Nerr_AWGN_K3(i) = Nerr_AWGN_K3(i) + hamming_dist(Signal_K3,Decoded_AWGN_K3);
+        Nerr_BSC_r2(i) = Nerr_BSC_r2(i) + hamming_dist(Signal_r2,Decoded_BSC_r2);
+        Nerr_BEC_r2(i) = Nerr_BEC_r2(i) + hamming_dist(Signal_r2,Decoded_BEC_r2);
+        Nerr_AWGN_r2(i) = Nerr_BSC_r2(i) + hamming_dist(Signal_r2,Decoded_BSC_r2);       
+    end
+end
+
+BER_BSC_K3 = Nerr_BSC_K3./(Nsim*A);
+BER_BSC_r2 = Nerr_BSC_r2./(Nsim*A);
+BER_BEC_K3 = Nerr_BEC_K3./(Nsim*A);
+BER_BEC_r2 = Nerr_BEC_r2./(Nsim*A);
+BER_AWGN_K3 = Nerr_AWGN_K3./(Nsim*A);
+BER_AWGN_r2 = Nerr_AWGN_r2./(Nsim*A);
+%% K = 4 r = 1/3
+i=0;
+for sigma2= sigma2set
+    i=i+1;
+    p = qfunc(sqrt(2*rate2*SNRlin(i)));
+    for ksim = 1:Nsim
+        % signal generation
+        Signal_r3 = signal_generator(A,4);
+        % encoding
+        [Trans_r3,Trans_AWGN_r3] = encoder_r3(Signal_r3);
+        % passing through channel (noise insertion)
+        [Rcvd_BSC_r3, Rcvd_BEC_r3, Rcvd_AWGN_r3] = noise_inserter(Trans_r3,Trans_AWGN_r3,p,sigma2);
+        % decoding at receiver begins
+        Decoded_BSC_r3 = viterbidec_r3(Rcvd_BSC_r3);
+        Decoded_BEC_r3 = viterbidec_r3(Rcvd_BEC_r3);
+        Decoded_AWGN_r3 = viterbidec_r3_AWGN(Rcvd_AWGN_r3);
+        % calculation of errors
+        Nerr_BSC_r3(i) = Nerr_BSC_r3(i) + hamming_dist(Signal_r3,Decoded_BSC_r3);
+        Nerr_BEC_r3(i) = Nerr_BEC_r3(i) + hamming_dist(Signal_r3,Decoded_BEC_r3);
+        Nerr_AWGN_r3(i) = Nerr_BSC_r3(i) + hamming_dist(Signal_r3,Decoded_BSC_r3);       
+    end
+end
+
+BER_BSC_r3 = Nerr_BSC_r3./(Nsim*A);
+BER_BEC_r3 = Nerr_BSC_r3./(Nsim*A);
+BER_AWGN_r3 = Nerr_AWGN_r3./(Nsim*A);
+
+%%
+semilogy(SNRdB,BER_BSC_K3,'o-','linewidth',2,'markerfacecolor','b','markeredgecolor','b');
+hold on;
+semilogy(SNRdB,BER_BEC_K3,'d-','linewidth',2,'color',[0 0.4 0.9],'markerfacecolor',[0 0.4 0.9],'markeredgecolor',[0 0.4 0.9]);
+hold on;
+semilogy(SNRdB,BER_AWGN_K3,'^-','linewidth',2,'color',[0 0.5 0],'markerfacecolor',[0 0.5 0],'markeredgecolor',[0 0.5 0]);
+hold on;
+semilogy(SNRdB,BER_BSC_r3,'o:','linewidth',2,'markerfacecolor','b','markeredgecolor','b');
+hold on;
+semilogy(SNRdB,BER_BEC_r3,'d:','linewidth',2,'color',[0 0.4 0.9],'markerfacecolor',[0 0.4 0.9],'markeredgecolor',[0 0.4 0.9]);
+hold on;
+semilogy(SNRdB,BER_AWGN_r3,'^:','linewidth',2,'color',[0 0.5 0],'markerfacecolor',[0 0.5 0],'markeredgecolor',[0 0.5 0]);
+hold on;
+xlabel('SNR per Bit in dB'); ylabel('Probability of Bit Error'); 
+grid on;
+legend('K=3 r=1/2 BSC','K=3 r=1/2 BEC','K=3 r=1/2 Gaussian Noise','K=4 r=1/3 BSC','K=4 r=1/3 BEC','K=3 r=1/3 Gaussian Noise'); axis([0 8 1e-7 1]); set(gca,'xtick',0:0.5:8);
+%%
+figure(2);
+semilogy(SNRdB,BER_BSC_K3,'o-','linewidth',2,'markerfacecolor','b','markeredgecolor','b');
+hold on;
+semilogy(SNRdB,BER_BEC_K3,'d-','linewidth',2,'color',[0 0.4 0.9],'markerfacecolor',[0 0.4 0.9],'markeredgecolor',[0 0.4 0.9]);
+hold on;
+semilogy(SNRdB,BER_AWGN_K3,'^-','linewidth',2,'color',[0 0.5 0],'markerfacecolor',[0 0.5 0],'markeredgecolor',[0 0.5 0]);
+hold on;
+semilogy(SNRdB,BER_BSC_r2,'o:','linewidth',2,'markerfacecolor','b','markeredgecolor','b');
+hold on;
+semilogy(SNRdB,BER_BEC_r2,'d-','linewidth',2,'color',[0 0.4 0.9],'markerfacecolor',[0 0.4 0.9],'markeredgecolor',[0 0.4 0.9]);
+hold on;
+semilogy(SNRdB,BER_AWGN_r2,'^:','linewidth',2,'color',[0 0.5 0],'markerfacecolor',[0 0.5 0],'markeredgecolor',[0 0.5 0]);
+hold on;
+xlabel('SNR per Bit in dB'); ylabel('Probability of Bit Error'); 
+grid on;
+legend('K=3 r=1/2 BSC','K=3 r=1/2 Gaussian Noise','K=4 r=1/2 BSC','K=3 r=1/2 Gaussian Noise'); axis([0 8 1e-7 1]); set(gca,'xtick',0:0.5:8);
+
+
+function[Signal] = signal_generator(A,k)
+    for i=1:A
+        Signal(i) = randi(2,1)-1;
+    end
+    Signal(i+1) = 0;
+    Signal(i+2) = 0;
+    if k==4
+       Signal(i+3) = 0; 
+    end
+end
+
+function[Trans, Trans_AWGN] = encoder_K3(Signal)
+    v1 = [1 0 1];
+    v2 = [1 1 1];
+    temp(1) = 0;
+    temp(2) = 0;
+    for i=1:length(Signal)
+       temp(i+2) = Signal(i); 
+    end
+    
+    for time =1:length(Signal)
+       Trans(2*time-1) = rem(sum([temp(time), temp(time+1), temp(time+2)].*v1),2); 
+       Trans(2*time) = rem(sum([temp(time), temp(time+1), temp(time+2)].*v2),2);
+    end
+    
+    for i=1:length(Trans)
+       Trans_AWGN(i) = 2*Trans(i)+1; 
+    end
+end
+
+function[Trans, Trans_AWGN] = encoder_r2(Signal)
+    v1 = [1 1 0 1];
+    v2 = [1 1 1 1];
+    temp(1) = 0;
+    temp(2) = 0;
+    temp(3) = 0;
+    for i=1:length(Signal)
+       temp(i+3) = Signal(i); 
+    end
+    
+    for time =1:length(Signal)
+       Trans(2*time-1) = rem(sum([temp(time), temp(time+1), temp(time+2), temp(time +3)].*v1),2); 
+       Trans(2*time) = rem(sum([temp(time), temp(time+1), temp(time+2), temp(time +3)].*v2),2);
+    end
+    
+    for i=1:length(Trans)
+       Trans_AWGN(i) = 2*Trans(i)+1; 
+    end
+end
+
+function[Trans, Trans_AWGN] = encoder_r3(Signal)
+    v1 = [1 0 1 1];
+    v2 = [1 1 0 1];
+    v3 = [1 1 1 1];
+    temp(1) = 0;
+    temp(2) = 0;
+    temp(3) = 0;
+    for i=1:length(Signal)
+       temp(i+3) = Signal(i); 
+    end
+    for time =1:length(Signal)
+       Trans(3*time-2) = rem(sum([temp(time), temp(time+1), temp(time+2), temp(time +3)].*v1),2); 
+       Trans(3*time-1) = rem(sum([temp(time), temp(time+1), temp(time+2), temp(time +3)].*v2),2);
+       Trans(3*time-0) = rem(sum([temp(time), temp(time+1), temp(time+2), temp(time +3)].*v3),2);
+    end
+    
+    for i=1:length(Trans)
+       Trans_AWGN(i) = 2*Trans(i)+1; 
+    end
+end
+
+function[Rcvd_BSC, Rcvd_BEC, Rcvd_AWGN] = noise_inserter(Trans, Trans_AWGN, p, sigma)
+    for i=1:length(Trans)
+       noise = rand(1) < p;
+       if noise ==1
+           Rcvd_BSC(i) = bitflip(Trans(i));
+       else
+           Rcvd_BSC(i) = Trans(i);
+       end
+       noise = rand(1) < p;
+       if noise ==1
+           Rcvd_BEC(i) = 0;
+       else
+           Rcvd_BEC(i) = Trans(i);
+       end
+       
+       Rcvd_AWGN(i) = Trans_AWGN(i) + randn*sigma;
+    end
+end
+
+function[y] = viterbidec_K3_AWGN(vector)
+%{
+    Allias of state used in code
+    State 00 - 1
+    State 10 - 2
+    State 11 - 3
+    State 01 - 4
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+
+global pred_state;
+len = length(Signal);
+                                   %To keep  record of arc
+pred_state = zeros(4,len/2+1);
+global BM;
+BM = zeros(4,4,len/2);
+
+global PM
+PM = zeros(4,len/2+1);
+
+for time = 1:len/2
+    for s1 = 1:4
+        for s2 = 1:4
+            BM(s1,s2,time) = BrM(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:len/2+1
+    for s = 1:4
+        PM(s,time) = PaM(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis_diagram = zeros(4, len/2 + 1);
+trellis_diagram(1,1) = 0;
+trellis_diagram(2:4,1) = inf;
+for i = 2:1:len/2+1
+    for j = 1:4        
+        trellis_diagram(j,i) = PM(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+min_PM = min(trellis_diagram(1:4, len/2+1));
+minPM_state = 1;
+l = len/2;
+for j = 1:4
+    if trellis_diagram(j,i) ~= min_PM
+        trellis_diagram(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = len/2+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if pred_state(1,i) == 1
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 2
+            if pred_state(2,i) == 1
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 3
+            if pred_state(3,i) == 2
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 4
+            if pred_state(4,i) == 2
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end            
+    end
+    
+    min_PM = min(trellis_diagram(1:4, l));
+    for j = 1:4
+        if trellis_diagram(j,l) ~= min_PM
+            trellis_diagram(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+y = op;
+%Branch metric function defined
+
+function [branch_metric] = BrM(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,-1]);
+            else  
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            end
+            
+        case 3
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            end
+            
+        case 4
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1.-1]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = PaM(state, time)
+%     global pred_state
+%     global PM;
+%     global BM;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(PM(1,time-1) + BM(1,state,time-1), PM(4,time-1) + BM(4,state,time-1));
+            if y == PM(1,time-1) + BM(1,state,time-1)
+                pred_state(state,time) = 1;
+            else
+                pred_state(state,time) = 4;
+            end
+        else
+            y = min(PM(3,time-1) + BM(3,state,time-1), PM(2,time-1) + BM(2,state,time-1));
+            if y == PM(3,time-1) + BM(3,state,time-1)
+                pred_state(state,time) = 3;
+            else
+                pred_state(state,time) = 2;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+
+function[y] = viterbidec_K3(vector)
+%{
+    Allias of state used in code
+    State 00 - 1
+    State 10 - 2
+    State 11 - 3
+    State 01 - 4
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+%Signal = [1 1 0 1 0 0 1 0 1 0 1 1];
+
+global previous_states;
+len = length(Signal);
+                                   %To keep  record of arc
+previous_states = zeros(4,len/2+1);
+global BM;
+BM = zeros(4,4,len/2);
+
+global PM
+PM = zeros(4,len/2+1);
+
+for time = 1:len/2
+    for s1 = 1:4
+        for s2 = 1:4
+            BM(s1,s2,time) = branch_metric_calculator(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:len/2+1
+    for s = 1:4
+        PM(s,time) = path_metric_calculator(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis_diagram = zeros(4, len/2 + 1);
+trellis_diagram(1,1) = 0;
+trellis_diagram(2:4,1) = inf;
+for i = 2:1:len/2+1
+    for j = 1:4        
+        trellis_diagram(j,i) = PM(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+% min_PM = min(trellis_diagram(1:4, len/2+1));
+min_PM = trellis_diagram(1,len/2+1);
+minPM_state = 1;
+l = len/2;
+for j = 1:4
+    if trellis_diagram(j,i) ~= min_PM
+        trellis_diagram(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = len/2+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if previous_states(1,i) == 1
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 2
+            if previous_states(2,i) == 1
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 3
+            if previous_states(3,i) == 2
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 4
+            if previous_states(4,i) == 2
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end            
+    end
+    
+    min_PM = min(trellis_diagram(1:4, l));
+    for j = 1:4
+        if trellis_diagram(j,l) ~= min_PM
+            trellis_diagram(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+y = op;
+%Branch metric function defined
+
+function [branch_metric] = branch_metric_calculator(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            else  
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            end
+            
+        case 3
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            end
+            
+        case 4
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = path_metric_calculator(state, time)
+%     global previous_states
+%     global PM;
+%     global BM;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(PM(1,time-1) + BM(1,state,time-1), PM(4,time-1) + BM(4,state,time-1));
+            if y == PM(1,time-1) + BM(1,state,time-1)
+                previous_states(state,time) = 1;
+            else
+                previous_states(state,time) = 4;
+            end
+        else
+            y = min(PM(3,time-1) + BM(3,state,time-1), PM(2,time-1) + BM(2,state,time-1));
+            if y == PM(3,time-1) + BM(3,state,time-1)
+                previous_states(state,time) = 3;
+            else
+                previous_states(state,time) = 2;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+
+function[y] = viterbidec_r2_AWGN(vector)
+%{
+    Allias of state used in code
+    State 000 - 1
+    State 001 - 2
+    State 010 - 3
+    State 011 - 4
+    State 100 - 5
+    State 101 - 6
+    State 110 - 7
+    State 111 - 8
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+%Signal = [1 1 0 1 0 0 1 0 1 0 1 1];
+
+global previous_states;
+len = length(Signal);
+                                   %To keep  record of arc
+previous_states = zeros(8,len/2+1);
+global BM;
+BM = zeros(8,8,len/2);
+
+global PM
+PM = zeros(8,len/2+1);
+
+for time = 1:len/2
+    for s1 = 1:8
+        for s2 = 1:8
+            BM(s1,s2,time) = branch_metric_calculator(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:len/2+1
+    for s = 1:8
+        PM(s,time) = path_metric_calculator(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis_diagram = zeros(8, len/2 + 1);
+trellis_diagram(1,1) = 0;
+trellis_diagram(2:4,1) = inf;
+for i = 2:1:len/2+1
+    for j = 1:8        
+        trellis_diagram(j,i) = PM(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+ min_PM = min(trellis_diagram(1:8, len/2+1));
+% min_PM = trellis_diagram(1,len/2+1);
+minPM_state = 1;
+l = len/2;
+for j = 1:8
+    if trellis_diagram(j,i) ~= min_PM
+        trellis_diagram(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = len/2+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if previous_states(1,i) == 1
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 2
+            if previous_states(2,i) == 1
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 3
+            if previous_states(3,i) == 2
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 4
+            if previous_states(4,i) == 2
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end   
+        case 5
+            if previous_states(5,i) == 3
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 6
+            if previous_states(6,i) == 3
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 7
+            if previous_states(7,i) == 4
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 8
+            if previous_states(7,i) == 4
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end              
+    end
+    
+    min_PM = min(trellis_diagram(1:8, l));
+    for j = 1:8
+        if trellis_diagram(j,l) ~= min_PM
+            trellis_diagram(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+y = op;
+%Branch metric function defined
+
+function [branch_metric] = branch_metric_calculator(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,-1]);
+            else  
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            end
+            
+        case 3
+            if state2 == 5
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,-1]);
+            end
+            
+        case 4
+            if state2 == 7
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            end
+        case 5
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else 
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,-1]);
+            end
+        case 6
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            end
+        case 7
+            if state2 == 5
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+        case 8
+            if state2 == 7
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[-1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(2*time-1),Signal(2*time)],[1,-1]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = path_metric_calculator(state, time)
+%     global previous_states
+%     global PM;
+%     global BM;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(PM(1,time-1) + BM(1,state,time-1), PM(5,time-1) + BM(5,state,time-1));
+            if y == PM(1,time-1) + BM(1,state,time-1)
+                previous_states(state,time) = 1;
+            else
+                previous_states(state,time) = 5;
+            end
+        elseif state == 3 || state == 4
+            y = min(PM(2,time-1) + BM(2,state,time-1), PM(6,time-1) + BM(6,state,time-1));
+            if y == PM(2,time-1) + BM(2,state,time-1)
+                previous_states(state,time) = 2;
+            else
+                previous_states(state,time) = 6;
+            end
+        elseif state == 5 || state == 6
+            y = min(PM(3,time-1) + BM(3,state,time-1), PM(7,time-1) + BM(7,state,time-1));
+            if y == PM(3,time-1) + BM(3,state,time-1)
+                previous_states(state,time) = 3;
+            else
+                previous_states(state,time) = 7;
+            end
+        elseif state == 7 || state == 8
+            y = min(PM(4,time-1) + BM(4,state,time-1), PM(8,time-1) + BM(8,state,time-1));
+            if y == PM(4,time-1) + BM(4,state,time-1)
+                previous_states(state,time) = 4;
+            else
+                previous_states(state,time) = 8;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+
+function[Decoded] = viterbidec_r2(vector)
+%{
+    Allias of state used in code
+    State 000 - 1
+    State 001 - 2
+    State 010 - 3
+    State 011 - 4
+    State 100 - 5
+    State 101 - 6
+    State 110 - 7
+    State 111 - 8
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+
+global previous_states;
+len = length(Signal);
+                                   %To keep  record of arc
+previous_states = zeros(8,len/2+1);
+global Branch_Metric;
+Branch_Metric = zeros(8,8,len/2);
+
+global Path_Metric
+Path_Metric = zeros(8,len/2+1);
+
+for time = 1:len/2
+    for s1 = 1:8
+        for s2 = 1:8
+            Branch_Metric(s1,s2,time) = branch_metric_calculator(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:len/2+1
+    for s = 1:8
+        Path_Metric(s,time) = path_metric_calculator(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis = zeros(8, len/2 + 1);
+trellis(1,1) = 0;
+trellis(2:8,1) = inf;
+for i = 2:1:len/2+1
+    for j = 1:8        
+        trellis(j,i) = Path_Metric(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+ min_PM = min(trellis(1:8, len/2+1));
+% min_PM = trellis(1,len/2+1);
+minPM_state = 1;
+l = len/2;
+for j = 1:8
+    if trellis(j,i) ~= min_PM
+        trellis(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = len/2+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if previous_states(1,i) == 1
+                y(l) = 0;
+            else
+                y(l) = 0;
+            end
+        case 2
+            if previous_states(2,i) == 1
+                y(l) = 1;
+            else
+                y(l) = 1;
+            end
+        case 3
+            if previous_states(3,i) == 2
+                y(l) = 0;
+            else
+                y(l) = 0;
+            end
+        case 4
+            if previous_states(4,i) == 2
+                y(l) = 1;
+            else
+                y(l) = 1;
+            end   
+        case 5
+            if previous_states(5,i) == 3
+                y(l) = 0;
+            else
+                y(l) = 0;
+            end
+        case 6
+            if previous_states(6,i) == 3
+                y(l) = 1;
+            else
+                y(l) = 1;
+            end
+        case 7
+            if previous_states(7,i) == 4
+                y(l) = 0;
+            else
+                y(l) = 0;
+            end
+        case 8
+            if previous_states(7,i) == 4
+                y(l) = 1;
+            else
+                y(l) = 1;
+            end              
+    end
+    
+    min_PM = min(trellis(1:8, l));
+    for j = 1:8
+        if trellis(j,l) ~= min_PM
+            trellis(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+Decoded = y;
+%Branch metric function defined
+
+function [branch_metric] = branch_metric_calculator(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            else  
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            end
+            
+        case 3
+            if state2 == 5
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            end
+            
+        case 4
+            if state2 == 7
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            end
+        case 5
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            else 
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            end
+        case 6
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            end
+        case 7
+            if state2 == 5
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,0]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,1]);
+            end
+        case 8
+            if state2 == 7
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[0,1]);
+            else
+                branch_metric = hamming_dist([Signal(2*time-1),Signal(2*time)],[1,0]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = path_metric_calculator(state, time)
+%     global previous_states
+%     global Path_Metric;
+%     global Branch_Metric;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(Path_Metric(1,time-1) + Branch_Metric(1,state,time-1), Path_Metric(5,time-1) + Branch_Metric(5,state,time-1));
+            if y == Path_Metric(1,time-1) + Branch_Metric(1,state,time-1)
+                previous_states(state,time) = 1;
+            else
+                previous_states(state,time) = 5;
+            end
+        elseif state == 3 || state == 4
+            y = min(Path_Metric(2,time-1) + Branch_Metric(2,state,time-1), Path_Metric(6,time-1) + Branch_Metric(6,state,time-1));
+            if y == Path_Metric(2,time-1) + Branch_Metric(2,state,time-1)
+                previous_states(state,time) = 2;
+            else
+                previous_states(state,time) = 6;
+            end
+        elseif state == 5 || state == 6
+            y = min(Path_Metric(3,time-1) + Branch_Metric(3,state,time-1), Path_Metric(7,time-1) + Branch_Metric(7,state,time-1));
+            if y == Path_Metric(3,time-1) + Branch_Metric(3,state,time-1)
+                previous_states(state,time) = 3;
+            else
+                previous_states(state,time) = 7;
+            end
+        elseif state == 7 || state == 8
+            y = min(Path_Metric(4,time-1) + Branch_Metric(4,state,time-1), Path_Metric(8,time-1) + Branch_Metric(8,state,time-1));
+            if y == Path_Metric(4,time-1) + Branch_Metric(4,state,time-1)
+                previous_states(state,time) = 4;
+            else
+                previous_states(state,time) = 8;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+
+function[y] = viterbidec_r3_AWGN(vector)
+%{
+    Allias of state used in code
+    State 000 - 1
+    State 001 - 2
+    State 010 - 3
+    State 011 - 4
+    State 100 - 5
+    State 101 - 6
+    State 110 - 7
+    State 111 - 8
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+
+global previous_states;
+len = length(Signal);
+                                   %To keep  record of arc
+previous_states = zeros(8,floor(len/3)+1);
+global BM;
+BM = zeros(8,8,floor(len/3));
+
+global PM
+PM = zeros(8,floor(len/3)+1);
+
+for time = 1:floor(len/3)
+    for s1 = 1:8
+        for s2 = 1:8
+            BM(s1,s2,time) = branch_metric_calculator(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:floor(len/3)+1
+    for s = 1:8
+        PM(s,time) = path_metric_calculator(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis_diagram = zeros(8, floor(len/3) + 1);
+trellis_diagram(1,1) = 0;
+trellis_diagram(2:8,1) = inf;
+for i = 2:1:floor(len/3)+1
+    for j = 1:8        
+        trellis_diagram(j,i) = PM(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+ min_PM = min(trellis_diagram(1:8, floor(len/3)+1));
+% min_PM = trellis_diagram(1,floor(len/3)+1);
+minPM_state = 1;
+l = floor(len/3);
+for j = 1:8
+    if trellis_diagram(j,i) ~= min_PM
+        trellis_diagram(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = floor(len/3)+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if previous_states(1,i) == 1
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 2
+            if previous_states(2,i) == 1
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 3
+            if previous_states(3,i) == 2
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 4
+            if previous_states(4,i) == 2
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end   
+        case 5
+            if previous_states(5,i) == 3
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 6
+            if previous_states(6,i) == 3
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 7
+            if previous_states(7,i) == 4
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 8
+            if previous_states(7,i) == 4
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end              
+    end
+    
+    min_PM = min(trellis_diagram(1:8, l));
+    for j = 1:8
+        if trellis_diagram(j,l) ~= min_PM
+            trellis_diagram(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+y = op;
+%Branch metric function defined
+
+function [branch_metric] = branch_metric_calculator(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,-1,-1]);
+            else  
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,-1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,1,-1]);
+            end
+            
+        case 3
+            if state2 == 5
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,-1,-1]);
+            end
+            
+        case 4
+            if state2 == 7
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,-1,1]);
+            end
+        case 5
+            if state2 == 1
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,1]);
+            else 
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,-1,-1]);
+            end
+        case 6
+            if state2 == 3
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,-1,1]);
+            end
+        case 7
+            if state2 == 5
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,-1,-1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,1,1]);
+            end
+        case 8
+            if state2 == 7
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[-1,-1,1]);
+            else
+                branch_metric = euclidian_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,-1]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = path_metric_calculator(state, time)
+%     global previous_states
+%     global PM;
+%     global BM;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(PM(1,time-1) + BM(1,state,time-1), PM(5,time-1) + BM(5,state,time-1));
+            if y == PM(1,time-1) + BM(1,state,time-1)
+                previous_states(state,time) = 1;
+            else
+                previous_states(state,time) = 5;
+            end
+        elseif state == 3 || state == 4
+            y = min(PM(2,time-1) + BM(2,state,time-1), PM(6,time-1) + BM(6,state,time-1));
+            if y == PM(2,time-1) + BM(2,state,time-1)
+                previous_states(state,time) = 2;
+            else
+                previous_states(state,time) = 6;
+            end
+        elseif state == 5 || state == 6
+            y = min(PM(3,time-1) + BM(3,state,time-1), PM(7,time-1) + BM(7,state,time-1));
+            if y == PM(3,time-1) + BM(3,state,time-1)
+                previous_states(state,time) = 3;
+            else
+                previous_states(state,time) = 7;
+            end
+        elseif state == 7 || state == 8
+            y = min(PM(4,time-1) + BM(4,state,time-1), PM(8,time-1) + BM(8,state,time-1));
+            if y == PM(4,time-1) + BM(4,state,time-1)
+                previous_states(state,time) = 4;
+            else
+                previous_states(state,time) = 8;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+
+function[y] = viterbidec_r3(vector)
+%{
+    Allias of state used in code
+    State 000 - 1
+    State 001 - 2
+    State 010 - 3
+    State 011 - 4
+    State 100 - 5
+    State 101 - 6
+    State 110 - 7
+    State 111 - 8
+%}
+
+
+global Signal;                 %This is the input to be decoded
+Signal = vector;
+
+global previous_states;
+len = length(Signal);
+                                   %To keep  record of arc
+previous_states = zeros(8,floor(len/3)+1);
+global BM;
+BM = zeros(8,8,floor(len/3));
+
+global PM
+PM = zeros(8,floor(len/3)+1);
+
+for time = 1:floor(len/3)
+    for s1 = 1:8
+        for s2 = 1:8
+            BM(s1,s2,time) = branch_metric_calculator(s1,s2,time);
+        end
+    end
+end
+
+for time = 1:floor(len/3)+1
+    for s = 1:8
+        PM(s,time) = path_metric_calculator(s,time);
+    end
+end
+
+
+
+%Trellis diagram formation
+%
+
+trellis_diagram = zeros(8, floor(len/3) + 1);
+trellis_diagram(1,1) = 0;
+trellis_diagram(2:8,1) = inf;
+for i = 2:1:floor(len/3)+1
+    for j = 1:8        
+        trellis_diagram(j,i) = PM(j,i);            
+    end
+end
+
+%
+%End of trellis diagram formation
+
+%Trellis traceback
+%
+ min_PM = min(trellis_diagram(1:8, floor(len/3)+1));
+% min_PM = trellis_diagram(1,floor(len/3)+1);
+minPM_state = 1;
+l = floor(len/3);
+for j = 1:8
+    if trellis_diagram(j,i) ~= min_PM
+        trellis_diagram(j,i) = inf;
+    else
+        minPM_state = j;
+    end
+end
+for i = floor(len/3)+1:-1:1
+    if l == 0
+        break;
+    end
+    
+        
+    switch minPM_state
+        case 1
+            if previous_states(1,i) == 1
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 2
+            if previous_states(2,i) == 1
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 3
+            if previous_states(3,i) == 2
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 4
+            if previous_states(4,i) == 2
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end   
+        case 5
+            if previous_states(5,i) == 3
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 6
+            if previous_states(6,i) == 3
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end
+        case 7
+            if previous_states(7,i) == 4
+                op(l) = 0;
+            else
+                op(l) = 0;
+            end
+        case 8
+            if previous_states(7,i) == 4
+                op(l) = 1;
+            else
+                op(l) = 1;
+            end              
+    end
+    
+    min_PM = min(trellis_diagram(1:8, l));
+    for j = 1:8
+        if trellis_diagram(j,l) ~= min_PM
+            trellis_diagram(j,l) = inf;
+        else
+            minPM_state = j;
+        end
+    end
+    l = l - 1;
+end
+%
+%Trellis traceback finished
+
+y = op;
+%Branch metric function defined
+
+function [branch_metric] = branch_metric_calculator(state1, state2, time)
+%     global Signal;
+    switch state1
+       
+        case 1
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,0,0]);
+            else  
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,1]);
+            end
+            
+        case 2
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,0,1]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,1,0]);
+            end
+            
+        case 3
+            if state2 == 5
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,1,1]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,0,0]);
+            end
+            
+        case 4
+            if state2 == 7
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,0]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,0,1]);
+            end
+        case 5
+            if state2 == 1
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,1]);
+            else 
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,0,0]);
+            end
+        case 6
+            if state2 == 3
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,1,0]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,0,1]);
+            end
+        case 7
+            if state2 == 5
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,0,0]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,1,1]);
+            end
+        case 8
+            if state2 == 7
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[0,0,1]);
+            else
+                branch_metric = hamming_dist([Signal(3*time-2),Signal(3*time-1),Signal(3*time)],[1,1,0]);
+            end
+    end
+end
+
+%Path metric function defined
+%
+function [y] = path_metric_calculator(state, time)
+%     global previous_states
+%     global PM;
+%     global BM;
+    if time == 1
+        if state == 1
+            y = 0;
+        else
+            y = inf;
+        end
+              
+    
+    else
+        
+        if state == 1 || state == 2
+            y = min(PM(1,time-1) + BM(1,state,time-1), PM(5,time-1) + BM(5,state,time-1));
+            if y == PM(1,time-1) + BM(1,state,time-1)
+                previous_states(state,time) = 1;
+            else
+                previous_states(state,time) = 5;
+            end
+        elseif state == 3 || state == 4
+            y = min(PM(2,time-1) + BM(2,state,time-1), PM(6,time-1) + BM(6,state,time-1));
+            if y == PM(2,time-1) + BM(2,state,time-1)
+                previous_states(state,time) = 2;
+            else
+                previous_states(state,time) = 6;
+            end
+        elseif state == 5 || state == 6
+            y = min(PM(3,time-1) + BM(3,state,time-1), PM(7,time-1) + BM(7,state,time-1));
+            if y == PM(3,time-1) + BM(3,state,time-1)
+                previous_states(state,time) = 3;
+            else
+                previous_states(state,time) = 7;
+            end
+        elseif state == 7 || state == 8
+            y = min(PM(4,time-1) + BM(4,state,time-1), PM(8,time-1) + BM(8,state,time-1));
+            if y == PM(4,time-1) + BM(4,state,time-1)
+                previous_states(state,time) = 4;
+            else
+                previous_states(state,time) = 8;
+            end
+        end
+        
+    
+     end
+end
+
+end
+
+function [HD]=hamming_dist(A,B)  
+    C = abs(A-B);
+    HD = sum(C);
+end
+
+function[ED] = euclidian_dist(A,B)
+    C = (A-B);
+    C = C.^2;
+    ED = sum(C);
+end
